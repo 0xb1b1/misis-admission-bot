@@ -1,0 +1,50 @@
+---
+version: "3"
+
+services:
+  backend:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    image: 0xb1b1/misis-admission-backend:latest
+    restart: always
+    env_file:
+      - .env
+    healthcheck:
+      test: curl --fail http://localhost:80 || exit 1
+      interval: 20s
+      retries: 3
+      start_period: 10s
+      timeout: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.misis-admission-backend.loadbalancer.server.port=80"
+      - "traefik.http.routers.misis-admission-backend.rule=Host(`${EXTERNAL_ENDPOINT}`)"
+      # TODO: Set up simple auth!
+      - "traefik.http.routers.misis-admission-backend.entrypoints=websecure"
+      - "traefik.http.routers.misis-admission-backend.tls=true"
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  telegram_bot:
+    build:
+      context: ./src_bots/misis-admission-telegram-bot
+      dockerfile: Dockerfile
+    image: algakz/misis-admission-telegram-bot:latest
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  vk_bot:
+    build:
+      context: ./src_bots/misis-admission-vk-bot
+      dockerfile: Dockerfile
+    image: algakz/misis-admission-vk-bot:latest
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env

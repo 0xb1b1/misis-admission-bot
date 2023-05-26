@@ -1,0 +1,3 @@
+[submodule "src_bots"]
+	path = src_bots
+	url = git@github.com:algakz06/misis_bot.git
