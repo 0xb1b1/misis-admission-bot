@@ -53,7 +53,7 @@ All deployment options are to be defined in the `.env` (environment) file. Copy 
 | Variable           | Example value              | Description |
 | ------------------ | :------------------------- | :---------- |
 | `BACKEND_URI`      | `backend`                  | Backend URI. Should default to the `backend` service defined in `docker-compose.yml` |
-| `TG_TOKEN`         | `3ABCDEF_GBKSBEFAKS=`      | Telegram token. Get from [@BotFather](https://t.me/BotFather) |
+| `TG_TOKEN`         | `3ABCDEF_GBKSBEFAKS=`      | Telegram token. Get one from [@BotFather](https://t.me/BotFather) |
 | `LOGGING_LEVEL`    | `info`                     | Service-wide logging level. Acceptable values: `debug`, `info`, `warning`, `error` |
 
 #### VKontakte bot
@@ -65,7 +65,7 @@ All deployment options are to be defined in the `.env` (environment) file. Copy 
 | Variable           | Example value              | Description |
 | ------------------ | :------------------------- | :---------- |
 | `BACKEND_URI`      | `backend`                  | Backend URI. Should default to the `backend` service defined in `docker-compose.yml` |
-| `VK_TOKEN`         | `3ABCDEF_GBKSBEFAKS=`      | Get from a VK Community service settings |
+| `VK_TOKEN`         | `3ABCDEF_GBKSBEFAKS=`      | Get from a VK Community's service settings |
 | `LOGGING_LEVEL`    | `info`                     | Service-wide logging level. Acceptable values: `debug`, `info`, `warning`, `error` |
 
 #### Deploy the stack
