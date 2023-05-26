@@ -49,10 +49,9 @@ Start the service with `docker compose up -d` after you configured Frontend serv
 
 All deployment options are to be defined in the `.env` (environment) file. Copy `env.example` to `.env` and change values to their desired state. Below are descriptions of all environment variables. Should you wish to compose the `.env` file yourself, use the following as reference.
 
-
 | Variable           | Example value              | Description |
 | ------------------ | :------------------------- | :---------- |
-| `BACKEND_URI`      | `backend`                  | Backend URI. Should default to the `backend` service defined in `docker-compose.yml` |
+| `DEFAULT_BASE_URL` | `backend`                  | Backend URL. Should default to the `backend` service defined in `docker-compose.yml` |
 | `TG_TOKEN`         | `3ABCDEF_GBKSBEFAKS=`      | Telegram token. Get one from [@BotFather](https://t.me/BotFather) |
 | `LOGGING_LEVEL`    | `info`                     | Service-wide logging level. Acceptable values: `debug`, `info`, `warning`, `error` |
 
@@ -64,7 +63,7 @@ All deployment options are to be defined in the `.env` (environment) file. Copy 
 
 | Variable           | Example value              | Description |
 | ------------------ | :------------------------- | :---------- |
-| `BACKEND_URI`      | `backend`                  | Backend URI. Should default to the `backend` service defined in `docker-compose.yml` |
+| `DEFAULT_BASE_URL` | `backend`                  | Backend URL. Should default to the `backend` service defined in `docker-compose.yml` |
 | `VK_TOKEN`         | `3ABCDEF_GBKSBEFAKS=`      | Get from a VK Community's service settings |
 | `LOGGING_LEVEL`    | `info`                     | Service-wide logging level. Acceptable values: `debug`, `info`, `warning`, `error` |
 
