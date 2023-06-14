@@ -17,7 +17,7 @@ services:
       start_period: 10s
       timeout: 10s
     labels:
-      - "traefik.enable=true"
+      - "traefik.enable=${ENABLE_TRAEFIK}"
       - "traefik.http.services.misis-admission-backend.loadbalancer.server.port=80"
       - "traefik.http.routers.misis-admission-backend.rule=Host(`${EXTERNAL_ENDPOINT}`)"
       # TODO: Set up simple auth!

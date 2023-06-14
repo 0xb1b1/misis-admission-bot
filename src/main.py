@@ -1,16 +1,17 @@
 from os import getenv
 from pathlib import Path
 import asyncio
-from time import mktime
+# from time import mktime
 # import json
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
-from typing import Union
+# from typing import Union
 # import gspread
 from dotenv import load_dotenv
 
 from modules.ssheet import GSheet
 from modules.checks import Checks
+import config
 # from modules.db import DBManager
 # from modules.models import Platform
 
@@ -65,7 +66,7 @@ async def reload():
     return {"status": 0}
 
 
-@app.get('/reload/repls')
+@app.get('/reload/replies')
 async def reload_replies():
     try:
         sheet.fetch_columns()
@@ -152,6 +153,7 @@ async def get_raw_data():
 
 @app.post('/telemetry')
 async def upload_telemetry(data: dict):
+    config.log.debug(f"app.telemetry: events: {data['events']}")
     sheet.add_telemetry_entries(data['events'])
     return {'status': 0}
 
