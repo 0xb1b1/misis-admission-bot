@@ -3,14 +3,15 @@
 """Checks for input data."""
 
 import re
+from config import log
 
 
 class Checks:
     def __init__(self, admin_token: str):
-        self.admin_token_store = admin_token
+        self.admin_token_store = admin_token.strip()
 
     def admin_token(self, token: str) -> bool:
-        return token == self.admin_token_store
+        return token.strip() == self.admin_token_store
 
     def user_data(self, data: dict) -> bool:
         """Check if user data is valid."""
@@ -71,7 +72,9 @@ class Checks:
 
         A valid phone number should look like 79991234455.
         """
-        return bool(re.match(r'^7\d{10}$', phone)) if phone else True
+        allowed = bool(re.match(r'^8\d{10}$', phone)) if phone else True
+        log.debug(f"Checks.phone_number(): phone {phone} is{' NOT' if not allowed else ''} allowed")
+        return allowed
 
     def email(self, email: str) -> bool:
         """Check if an email is valid.
@@ -80,8 +83,13 @@ class Checks:
         """
         if email is None:
             return True
-        return (bool(re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email))
-                and self.email_domain(email.split('@')[1]))
+        email_allowed = bool(re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email))
+        domain_allowed = self.email_domain(email.split('@')[1]) if '@' in email else False
+        log.debug(f"Checks.email(): email {email} is{' NOT' if not email_allowed else ''} \
+allowed; domain is{' NOT' if not domain_allowed else ''} allowed")
+        allowed = email_allowed and domain_allowed
+        log.debug(f"Checks.email(): email {email} is{' NOT' if not allowed else ''} allowed")
+        return allowed
 
     @staticmethod
     def email_domain(domain: str):
@@ -120,7 +128,9 @@ class Checks:
             'yandex.lv',
             'yandex.lt'
         ]
-        return domain in domains
+        allowed: bool = domain in domains
+        log.debug(f"Checks.email_domain(): {domain} is{' NOT' if not allowed else ''} in allowed domains list")
+        return allowed
 
     @staticmethod
     def city(city: str) -> bool:

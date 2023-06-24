@@ -14,8 +14,8 @@ COPY main.py .
 COPY config.py .
 COPY modules/ ./modules/
 
-# Create data directory / logs directory
-RUN mkdir -p /data/logs
+# Create data directory + logs and backups directories
+RUN mkdir -p /data/{logs,backups}
 
 # Run the bot
 CMD ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "80"]

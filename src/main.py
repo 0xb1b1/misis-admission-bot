@@ -22,11 +22,17 @@ load_dotenv()
 with open(Path.cwd() / "google_api_creds.json", "w") as f:
     f.write(getenv('GOOGLE_API_TOKEN', ""))
 
-sheet = GSheet('google_api_creds.json', 'misis_admission_spreadsheet',
+# Get Google Sheet file key
+google_sheet_key: str | None = getenv("GOOGLE_SHEET_KEY", None)
+if not google_sheet_key:
+    raise ValueError("GOOGLE_SHEET_KEY is not set")
+
+sheet = GSheet('google_api_creds.json', google_sheet_key,
                int(getenv("WS_CONTENT_ID", "0")),
                int(getenv("WS_TELEMETRY_ID", "")),
                int(getenv("WS_USERS_ID", "")),
-               int(getenv("WS_ADMINS_ID", ""))
+               int(getenv("WS_ADMINS_ID", "")),
+               backup_dir=config.backup_dir
               )
 
 # db = DBManager(None)

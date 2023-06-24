@@ -1,6 +1,10 @@
 ---
 version: "3"
 
+volumes:
+  data:
+    driver: local
+
 services:
   backend:
     build:
@@ -16,6 +20,8 @@ services:
       retries: 3
       start_period: 10s
       timeout: 10s
+    volumes:
+        - data:/data
     labels:
       - "traefik.enable=${ENABLE_TRAEFIK}"
       - "traefik.http.services.misis-admission-backend.loadbalancer.server.port=80"

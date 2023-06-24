@@ -1,8 +1,21 @@
 from os import getenv
 from dotenv import load_dotenv
 import logging
+from pathlib import Path
 
 load_dotenv()
+
+# Get backup dir
+backup_dir: Path | None = Path(getenv('BACKUP_DIR', None)) if getenv('BACKUP_DIR', None) else None
+
+# Create the backup dir if it doesn't exist
+if backup_dir and not backup_dir.exists():
+    backup_dir.mkdir(exist_ok=True)
+
+# Create the logs dir if it doesn't exist
+logs_dir: Path = Path(getenv('LOGS_DIR', None)) if getenv('LOGS_DIR', None) else Path('/data/logs')  # Change to None after setting up Logging region
+if not logs_dir.exists():
+    logs_dir.mkdir(exist_ok=True)
 
 # region Logging
 # Create a logger instance

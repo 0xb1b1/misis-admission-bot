@@ -6,16 +6,19 @@ from typing import List, Union, Dict
 from time import sleep
 from datetime import datetime
 from modules import naming
+from config import log
+import csv, os
 
 
 class GSheet:
-    def __init__(self, creds_file: Path, sheet_name: str,
+    def __init__(self, creds_file: str, sheet_key: str,
                  ws_content_id: int, ws_telemetry_id: int,
                  ws_users_id: int, ws_admins_id: int,
-                 cooldown: int = 5):
+                 cooldown: int = 5, backup_dir: Path | None = None):
+        self.backup_dir: Path | None = backup_dir
         # Create creds pseudo-file in memory with IO
         gc = gspread.service_account(filename=creds_file)
-        self.sh = gc.open(sheet_name)
+        self.sh = gc.open_by_key(sheet_key)
         self.cooldown = cooldown
         self.ws_content = self.sh.get_worksheet_by_id(ws_content_id)
         self.ws_telemetry = self.sh.get_worksheet_by_id(ws_telemetry_id)
@@ -72,7 +75,7 @@ class GSheet:
             temp_dict[key_list[-1]] = value
         self.columns = json_cols
 
-    def fetch_users(self):
+    def fetch_users(self, return_users: bool = False) -> dict | None:
         # self.ws_users table content: timestamp, user_id, platform, first_name, last_name, username
         # Create the table hat if it doesn't exist
         if not self.ws_users.get_all_values():
@@ -92,6 +95,8 @@ class GSheet:
                                                                                                 '%d.%m.%Y %H:%M:%S')}
                  for user in users}
         print(f"DEBUG: users: {users}")
+        if return_users:
+            return users
         self.users = users
 
     def fetch_admins(self):
@@ -191,6 +196,7 @@ class GSheet:
                 self.ws_telemetry.append_row(['Timestamp', 'Platform', 'User ID', 'Button ID', 'Button Name'])
         except APIError:
             print("APIError occurred while uploading telemetry")
+            self.create_backup()
             return
         for entry in self.telemetry_entries:
             platform = "Unknown"
@@ -228,8 +234,13 @@ class GSheet:
         if f"{platform}_{user_id}" in self.admins:
             return False
         # Add admin to the table
-        self.ws_admins.append_row([user_id, naming.platform_long[platform],
-                                   datetime.now().strftime('%d.%m.%Y %H:%M:%S')])
+        try:
+            self.ws_admins.append_row([user_id, naming.platform_long[platform],
+                                       datetime.now().strftime('%d.%m.%Y %H:%M:%S')])
+        except APIError:
+            log.error("APIError occurred while adding admin to the Google Sheet")
+            self.create_backup()
+            return False
         # Add admin to the admins dict
         self.admins[f"{platform}_{user_id}"] = {'user_id': user_id,
                                                 'platform': platform,
@@ -242,10 +253,15 @@ class GSheet:
         if f"{platform}_{user_id}" not in self.admins:
             return False
         # Remove admin from the table
-        for row in self.ws_admins.get_all_values():
-            if row[0] == str(user_id) and row[1] == platform:
-                self.ws_admins.delete_row(self.ws_admins.find(row[0]).row)
-                break
+        try:
+            for row in self.ws_admins.get_all_values():
+                if row[0] == str(user_id) and row[1] == platform:
+                    self.ws_admins.delete_row(self.ws_admins.find(row[0]).row)
+                    break
+        except APIError:
+            log.error("APIError occurred while removing admin from the Google Sheet")
+            self.create_backup()
+            return False
         # Remove admin from the admins dict
         del self.admins[f"{platform}_{user_id}"]
         return True
@@ -258,40 +274,52 @@ class GSheet:
         if f"{data['platform']}_{data['user_id']}" in self.users:
             return False
         # Add user to the table
-        self.ws_users.append_row([datetime.now().strftime('%d.%m.%Y %H:%M:%S'),
-                                  data['user_id'],
-                                  naming.platform_long[data['platform']],
-                                  data['username'] if 'username' in data else None,
-                                  data['first_name'] if 'first_name' in data else None,
-                                  data['last_name'] if 'last_name' in data else None,
-                                  data['city'] if 'city' in data else None,
-                                  data['phone_number'] if 'phone_number' in data else None,
-                                  data['email'] if 'email' in data else None])
+        try:
+            self.ws_users.append_row([datetime.now().strftime('%d.%m.%Y %H:%M:%S'),
+                                      data['user_id'],
+                                      naming.platform_long[data['platform']],
+                                      data['username'] if 'username' in data else None,
+                                      data['first_name'] if 'first_name' in data else None,
+                                      data['last_name'] if 'last_name' in data else None,
+                                      data['city'] if 'city' in data else None,
+                                      data['phone_number'] if 'phone_number' in data else None,
+                                      data['email'] if 'email' in data else None])
+        except APIError:
+            log.error("APIError occurred while adding user to the Google Sheet")
+            self.create_backup()
+            return False
         # Add user to the users dict
         self.users[f"{data['platform']}_{data['user_id']}"] = data
         return True
 
-    def update_user(self, data: dict) -> bool:
+    def update_user(self, data: dict, panic_on_not_found: bool = False) -> bool:
         """Update user in Google Sheets."""
         found = False
         # Check if the user is in the table
         if f"{data['platform']}_{data['user_id']}" in self.users:
             # Update user in the table
-            for row in self.ws_users.get_all_values():
-                if row[1] == str(data['user_id']) and row[2] == naming.platform_long[data['platform']]:
-                    # Update the whole row with the new data
-                    self.ws_users.update(f"B{self.ws_users.find(row[0]).row}:I{self.ws_users.find(row[0]).row}",
-                                         [[data['user_id'],
-                                           naming.platform_long[data['platform']],
-                                           data['username'] if 'username' in data else None,
-                                           data['first_name'] if 'first_name' in data else None,
-                                           data['last_name'] if 'last_name' in data else None,
-                                           data['city'] if 'city' in data else None,
-                                           data['phone_number'] if 'phone_number' in data else None,
-                                           data['email'] if 'email' in data else None]])
-                    found = True
-                    break
+            try:
+                for row in self.ws_users.get_all_values():
+                    if row[1] == str(data['user_id']) and row[2] == naming.platform_long[data['platform']]:
+                        # Update the whole row with the new data
+                        self.ws_users.update(f"B{self.ws_users.find(row[0]).row}:I{self.ws_users.find(row[0]).row}",
+                                             [[data['user_id'],
+                                               naming.platform_long[data['platform']],
+                                               data['username'] if 'username' in data else None,
+                                               data['first_name'] if 'first_name' in data else None,
+                                               data['last_name'] if 'last_name' in data else None,
+                                               data['city'] if 'city' in data else None,
+                                               data['phone_number'] if 'phone_number' in data else None,
+                                               data['email'] if 'email' in data else None]])
+                        found = True
+                        break
+            except APIError:
+                log.error("APIError occurred while updating user in the Google Sheet")
+                self.create_backup()
+                return False
         if not found:
+            if panic_on_not_found:
+                raise ValueError(f"User {data['user_id']} not found in the Google Sheet")
             found = self.add_user(data)
         # Update user in the users dict
         self.users[f"{data['platform']}_{data['user_id']}"] = data
@@ -332,10 +360,94 @@ class GSheet:
             return False
         del self.users[f"{platform}_{user_id}"]
         # Remove user from the table
-        for i, row in enumerate(self.ws_users.get_all_values()):
-            print(f'evaluating row {i + 1}: {row}: [{row[2]}]{row[2] == naming.platform_long[platform]} [{row[1]}]{row[1] == str(user_id)}')
-            if row[2] == naming.platform_long[platform] and row[1] == str(user_id):
-                self.ws_users.delete_rows(i + 1)
-                break
+        try:
+            for i, row in enumerate(self.ws_users.get_all_values()):
+                print(f'evaluating row {i + 1}: {row}: [{row[2]}]{row[2] == naming.platform_long[platform]} [{row[1]}]{row[1] == str(user_id)}')
+                if row[2] == naming.platform_long[platform] and row[1] == str(user_id):
+                    self.ws_users.delete_rows(i + 1)
+                    break
+        except APIError:
+            log.error("APIError occurred while deleting user from the Google Sheet")
+            self.create_backup()
+            return False
         return True
+    # endregion
+
+    # region Integrity checks
+    # This region is dedicated to checking the data integrity of Google Sheet data
+    def remote_users_absent(self) -> bool:
+        """
+        Check user data integrity in Google Sheets.
+
+        :return:
+
+        Check whether all users are present in the Google Sheet (ws_users page).
+        """
+        gs_users_keys: list = list(self.fetch_users(return_users=True).keys())
+        absent_user_ids: list = list()
+        for user_id in self.users.keys():
+            if user_id not in gs_users_keys:
+                absent_user_ids.append(user_id)
+        if not absent_user_ids:
+            log.debug("All users are present in the Google Sheet")
+            return False
+        log.warning(f"{len(absent_user_ids)} users are not present in the Google Sheet")
+
+    def create_backup(self):
+        """Create a backup CSV file with all users in `self.backup_dir` if it's not none."""
+        if not self.backup_dir:
+            log.warning("Backup event triggered, but backup_dir is not set")
+            return
+        log.info("Backup event triggered; Creating a backup CSV file")
+        backup_file_ts: str = datetime.now().strftime('%Y.%m.%d-%H.%M.%S')
+        # Create a backup with csv module
+        with open(f"{self.backup_dir}/users_{backup_file_ts}.csv", 'w', newline='') as backup_file:
+            writer = csv.writer(backup_file)
+            writer.writerow(['timestamp', 'user_id', 'platform', 'username', 'first_name', 'last_name', 'city',
+                             'phone_number', 'email'])
+            for user_id, user in self.users.items():
+                writer.writerow([user['timestamp'], user['user_id'], user['platform'], user['username'],
+                                 user['first_name'], user['last_name'], user['city'], user['phone_number'],
+                                 user['email']])
+        log.info(f"Backup file created: {backup_file_ts}.csv")
+
+    def restore_backup(self):
+        """Restore the latest backup file."""
+        if not self.backup_dir:
+            log.warning("Restore event triggered, but backup_dir is not set")
+            return
+        log.info("Restore event triggered; Restoring the latest backup file")
+        # Get the latest backup file
+        backup_files: list = list()
+        for file in os.listdir(self.backup_dir):
+            if file.endswith('.csv'):
+                backup_files.append(file.split('.')[0].split('_')[1])
+        if not backup_files:
+            log.warning("No backup files found")
+            return
+        # Get the latest backup file using datetime module
+        latest_backup_file: str = max(backup_files, key=lambda x: datetime.strptime(x, '%Y.%m.%d-%H.%M.%S'))
+        # Restore the latest backup file with csv module
+        with open(f"{self.backup_dir}/users_{latest_backup_file}.csv", 'r', newline='') as backup_file:
+            reader = csv.reader(backup_file)
+            next(reader)
+            for row in reader:
+                self.update_user({
+                    'timestamp': row[0],
+                    'user_id': row[1],
+                    'platform': row[2],
+                    'username': row[3],
+                    'first_name': row[4],
+                    'last_name': row[5],
+                    'city': row[6],
+                    'phone_number': row[7],
+                    'email': row[8]
+                })
+        log.info(f"Backup file restored: users_{latest_backup_file}.csv")
+
+    def ensure_data_integrity(self):
+        if self.remote_users_absent():
+            self.create_backup()
+        # if not self.is_sheet_up_to_date():  # Should check the timestamp on a separate sheet
+        #     self.restore_backup()
     # endregion
